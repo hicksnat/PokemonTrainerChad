@@ -1,4 +1,5 @@
 const { getAvailablePokemon, parseRequestJSON } = require('./utils');
+const { Sim } = require('pokemon-showdown');
 
 function successor(state) {
     const successors = [];
@@ -25,11 +26,26 @@ function successor(state) {
 
         // Generate successors for each available move
         availableMoves.forEach(move => {
-            const newState = { ...state };
-            newState.move = move.id; // Store the move ID in the new state
+            const battleState = JSON.stringify(state.battle.toJSON());
+            const simulatedBattle = new Sim.Battle();
+            simulatedBattle.importJSON(battleState);
+
+            // Apply move
+            simulatedBattle.choose(currentPlayer, 'move ${move.id}');
+            simulatedBattle.commitDecisions();
+
+            // Create new state based on the simulation above
+            const newState = {
+                ...state,
+                battle: simulatedBattle,
+                move: move.id
+            };
+
             successors.push(newState);
         });
     }
 
     return successors;
 }
+
+// TODO: Implement the evaluation function
