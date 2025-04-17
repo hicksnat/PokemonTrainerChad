@@ -26,38 +26,24 @@ let battleOver = false;
         if (!battleOver && output.includes('|request|')) {
             const request = parseRequestJSON(output);
             
-            if (request.forceSwitch) {
-                console.log("WE ARE BEING REQUESTED TO SWITCH")
-            }
 
             if (!request.forceSwitch && !request.wait) {
                 console.log("GOING INTO MOVE CHOICE IF STATEMENT")
                 stream.write(`>p1 move 1`); //TODO: Change these to select random moves
                 stream.write(`>p2 move 1`);
             } else if (request.forceSwitch?.[0] && !request.forceSwitch[1]) {    //If player 1's Pokemon is fainted, P1 switch
-                const availablePokemon = getAvailablePokemon(output, 'p1');
-                if (availablePokemon.length > 0) {
-                    const choice = availablePokemon[Math.floor(Math.random() * availablePokemon.length)];
-                    stream.write(`>p1 switch ${choice}`);
-                }
+                console.log("WE ARE BEING REQUESTED TO SWITCH player 1")
+                stream.write(`>p1 switch 2`)
+                continue
             } else if (request.forceSwitch?.[1] && !request.forceSwitch?.[0]) {    //If player 2's Pokemon is fainted, P2 switch
-                const availablePokemon = getAvailablePokemon(output, 'p2');
-                if (availablePokemon.length > 0) {
-                    const choice = availablePokemon[Math.floor(Math.random() * availablePokemon.length)];
-                    stream.write(`>p2 switch ${choice}`);
-                }
-            } else if (request.forceSwitch?.[1] && !request.forceSwitch?.[1]) {    //If both players' Pokemon are fainted, both switch
-                let availablePokemon = getAvailablePokemon(output, 'p1');
-                if (availablePokemon.length > 0) {
-                    const choice = availablePokemon[Math.floor(Math.random() * availablePokemon.length)];
-                    stream.write(`>p1 switch ${choice}`);
-                }
-
-                availablePokemon = getAvailablePokemon(output, 'p2');
-                if (availablePokemon.length > 0) {
-                    const choice = availablePokemon[Math.floor(Math.random() * availablePokemon.length)];
-                    stream.write(`>p2 switch ${choice}`);
-                }
+                console.log("WE ARE BEING REQUESTED TO SWITCH player 2")
+                stream.write(`>p2 switch 2`)
+                continue
+            } else if (request.forceSwitch?.[0] && request.forceSwitch?.[1]) {    //If both players' Pokemon are fainted, both switch
+                console.log("WE ARE BEING REQUESTED TO SWITCH both players")
+                stream.write(`>p1 switch 2`)
+                stream.write(`>p2 switch 2`)
+                continue
             }
         }
     }
