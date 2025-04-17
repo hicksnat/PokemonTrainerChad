@@ -1,6 +1,11 @@
 const { getAvailablePokemon, parseRequestJSON } = require('./utils');
 const { Sim } = require('pokemon-showdown');
 
+/**
+ * Generates a list of possible states that can be reached from the current state.
+ * @param {battle: Sim.Battle} state - The current state of the battle.
+ * @returns {Array} A list of successor states.
+ */
 function successor(state) {
     const successors = [];
 
@@ -15,7 +20,7 @@ function successor(state) {
     // Generate successors for each available Pokémon
     currentPlayer.forEach(pokemon => {
         const newState = { ...state };
-        newState.pokemon = pokemon;
+        newState.activePokemon = state.battle[state.player].active[0];
         successors.push(newState);
     });
 
