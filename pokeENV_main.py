@@ -1,5 +1,6 @@
-from pokeENV_test_bot import YourFirstAgent
+
 from bot_random_heuristic import randomRicky
+from bot_max_damage_heuristic import damageDelilah
 from poke_env.player.player import Player
 from poke_env.player.random_player import RandomPlayer
 
@@ -7,7 +8,7 @@ import asyncio
 
 
 # Instantiate the agent and opponent
-agent = YourFirstAgent(battle_format="gen9randombattle")
+agent = randomRicky(battle_format="gen9randombattle")
 opponent = RandomPlayer(battle_format="gen9randombattle")
 
 # Run one match
