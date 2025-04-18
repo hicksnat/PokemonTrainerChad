@@ -1,7 +1,10 @@
 import random
 import copy
+import asyncio
+from utils import pokemon_to_showdown_string
 from poke_env.environment.move import Move
 from poke_env.environment.pokemon import Pokemon
+from poke_env.player.random_player import RandomPlayer
 
 
 class Node:
@@ -99,7 +102,29 @@ class GameState:
 
         # Check if the action is a move
         if isinstance(action, Move):
-            new_state.simulate_move(action)
+            # Instantiate teams
+            agent_team = pokemon_to_showdown_string(self.active_pokemon)
+            opponent_team = pokemon_to_showdown_string(self.opponent_pokemon)
+
+            # Instantiate the agent and opponent                 
+            agent = RandomPlayer(
+                battle_format="gen9ubers",
+                team=[agent_team])
+            opponent = RandomPlayer(
+                battle_format="gen9ubers",
+                team=[opponent_team])
+
+            ### TODO: make sure the battle starts by suing the move proposed in the unexpanded node
+            battle = None
+            # Run one match
+            async def main():
+                await agent.battle_against(opponent, n_battles=1)
+
+            asyncio.run(main())
+
+            while(not battle.won):
+                if battle.is_won:
+                    return battle.won_by(agent.name)
 
         # Or check if it's a switch
         elif isinstance(action, Pokemon):
