@@ -5,6 +5,7 @@ from utils import pokemon_to_showdown_string
 from poke_env.environment.move import Move
 from poke_env.environment.pokemon import Pokemon
 from poke_env.player.random_player import RandomPlayer
+from random_agent_for_simulations import FirstMovePlayer
 
 
 class Node:
@@ -14,6 +15,7 @@ class Node:
     visits = 0           # Number of times this node has been visited
     wins = 0             # How many wins resulted from simulations starting off of this node
     action = None        # The action or switch that led to this node
+    simulation_result = 0     # Stores if the node leads to a node when simulated (-1 = loss, 0 = not tried, 1 = win)
 
     def __init__(self, state, parent=None, action=None):    #state: GameState, parent: Node, action: (Move or Pokemon class depending on how PokeENV treats it)
         self.state = state  
@@ -21,7 +23,8 @@ class Node:
         self.children = []  
         self.visits = 0  
         self.wins = 0  
-        self.action = action  
+        self.action = action 
+        self.simulation_result = 0 
 
     def add_child(self, node):
         self.children.append(node)
@@ -33,6 +36,13 @@ class Node:
         return self.children
     
     def expand(self):
+        """
+        Expands the current node by applying an untried action,
+        simulating the result, and adding a new child node.
+    
+        Returns:
+            Node: the newly created child node, or None if no untried actions remain.
+        """
         # Get all possible actions
         possible_actions = self.state.get_possible_actions()
         
@@ -44,11 +54,12 @@ class Node:
             # Pick a random unexpanded action (or use any other method of choosing)
             action_to_expand = random.choice(unexpanded_actions)
 
-        # Create a new game state based on that action
-            new_state = self.apply_action(action_to_expand)
+        # Create a new game and simulate based off of that action; returns 1 for win, -1 for loss
+            result, new_state = self.state.apply_action(action_to_expand)
 
         # Create a new child node
             new_child_node = Node(new_state, parent=self, action=action_to_expand)
+            new_child_node.simulation_result = result
             self.children.append(new_child_node)
 
             return new_child_node
@@ -71,6 +82,7 @@ class GameState:
         self.available_moves = battle.available_moves
         self.hp_data = battle.hp_data
         self.status_data = battle.status_data
+        self.pp_data = self.get_pp_data(battle)
 
     
     def get_possible_actions(self):
@@ -87,7 +99,8 @@ class GameState:
     def __eq__(self, other):
         # This lets us compare two GameStates. They are the same if both active Pokemon are the same
         return self.active_pokemon == other.active_pokemon and \
-               self.opponent_pokemon == other.opponent_pokemon
+               self.opponent_pokemon == other.opponent_pokemon #and \
+               #self.get_pp_data == other.get_pp_data
     
 
 
@@ -98,7 +111,7 @@ class GameState:
     # have them fight to approximate battles to return win and loss chances
     def apply_action(self, action):
         # Make a deep copy of the current state to avoid modifying the real one
-        new_state = copy.deepcopy(self)
+        new_state = copy.deepcopy(self) #Ok so what I'm gonna do is copy the game state and manually change the parts that change so that it makes sense
 
         # Check if the action is a move
         if isinstance(action, Move):
@@ -106,32 +119,52 @@ class GameState:
             agent_team = pokemon_to_showdown_string(self.active_pokemon)
             opponent_team = pokemon_to_showdown_string(self.opponent_pokemon)
 
+            # Make sure the new state now has the information for this new trial node
+            new_state.active_pokemon = self.active_pokemon
+
             # Instantiate the agent and opponent                 
-            agent = RandomPlayer(
+            agent = FirstMovePlayer(
                 battle_format="gen9ubers",
                 team=[agent_team])
             opponent = RandomPlayer(
                 battle_format="gen9ubers",
                 team=[opponent_team])
 
-            ### TODO: make sure the battle starts by suing the move proposed in the unexpanded node
-            battle = None
             # Run one match
             async def main():
-                await agent.battle_against(opponent, n_battles=1)
+                return await agent.battle_against(opponent, n_battles=1)
 
-            asyncio.run(main())
+            battle = asyncio.run(main())
 
-            while(not battle.won):
-                if battle.is_won:
-                    return battle.won_by(agent.name)
+            return (1 if battle.won_by(agent.name) else -1), new_state
+
 
         # Or check if it's a switch
         elif isinstance(action, Pokemon):
-            new_state.switch_to(action)
+            agent_team = pokemon_to_showdown_string(action)
+            opponent_team = pokemon_to_showdown_string(self.opponent_pokemon)
+
+            # Make sure the new state now has the information for this new trial node
+            new_state.active_pokemon = action
+
+            agent = RandomPlayer(
+                battle_format="gen9ubers",
+                team=[agent_team])
+            opponent = RandomPlayer(
+                battle_format="gen9ubers",
+                team=[opponent_team])
+            
+            # Run one match
+            async def main():
+                return await agent.battle_against(opponent, n_battles=1)
+
+            battle = asyncio.run(main())
+
+            return (1 if battle.won_by(agent.name) else -1), new_state
+
 
         else:
             raise ValueError("Unknown action type: must be Move or Pokemon")
+        
 
-        return new_state
 

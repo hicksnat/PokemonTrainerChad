@@ -8,7 +8,7 @@ import asyncio
 
 
 # Instantiate the agent and opponent
-agent = randomRicky(battle_format="gen9randombattle")
+agent = damageDelilah(battle_format="gen9randombattle")
 opponent = RandomPlayer(battle_format="gen9randombattle")
 
 # Run one match
