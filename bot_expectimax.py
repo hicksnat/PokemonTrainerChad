@@ -19,7 +19,6 @@ class ExpectimaxEric(Player):
                 max_util = value
                 best_move = state.history[-1]
 
-
         # If no best move is found, choose a random available move
         # This is a fallback mechanism to ensure the bot always makes a move
         if best_move is None:
