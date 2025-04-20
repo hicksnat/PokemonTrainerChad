@@ -1,4 +1,5 @@
 
+from bot_expectimax import ExpectimaxEric
 from bot_random_heuristic import randomRicky
 from bot_max_damage_heuristic import damageDelilah
 from bot_monte_carlo_heuristic import MonteCarloChad
