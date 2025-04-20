@@ -13,7 +13,7 @@ class ExpectimaxEric(Player):
     def choose_move(self, battle):
         max_util = float('-inf')
         best_move = None
-        for state in successor(battle):
+        for state in successor(battle, True):
             value = expectimax_search(state, depth=3, is_ai_turn=True)
             if value > max_util:
                 max_util = value

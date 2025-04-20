@@ -1,6 +1,7 @@
 from poke_env.environment.battle import Battle
 from poke_env.environment.pokemon import Pokemon
 from poke_env.environment.move import Move
+from type_chart import type_chart
 import copy
 
 class SimulatedPokemon:
@@ -8,7 +9,7 @@ class SimulatedPokemon:
         self.name = p.species
         self.type_1 = p.type_1
         self.type_2 = p.type_2
-        self.stats = p.stats
+        self.stats = p.base_stats
         self.max_hp = p.max_hp or 100
         self.current_hp = p.current_hp or self.max_hp
         self.status = p.status  # None, 'brn', 'slp', etc.
@@ -40,6 +41,7 @@ class BattleState:
         
         self.status_log = []
         self.history = []
+        self._finished = battle._finished
 
     def clone(self):
         new_state = BattleState.__new__(BattleState)
@@ -83,7 +85,7 @@ class BattleState:
         power = move.base_power or 0
 
         stab = 1.5 if move.type in [attacker.type_1, attacker.type_2] else 1.0
-        effectiveness = move.type.damage_multiplier(defender.type_1, defender.type_2)
+        effectiveness = move.type.damage_multiplier(defender.type_1, defender.type_2, type_chart=type_chart)
 
         damage = (((2 * level / 5 + 2) * power * atk_stat / def_stat) / 50 + 2)
         damage = int(damage * stab * effectiveness)
@@ -97,7 +99,7 @@ class BattleState:
         })
 
         if (defender.is_fainted()):
-            utility += 1000 if actor == 'p1' else -1000
+            self.utility += 1000 if actor == 'p1' else -1000
 
         return self
 
@@ -111,7 +113,10 @@ class BattleState:
 
         self.history.append({
             'actor': actor,
-            'action': new_pokemon
+            'action': new_pokemon,
+            'damage': 0
         })
 
         return self
+    
+

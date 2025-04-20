@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import time
 import sys
 
@@ -12,6 +13,25 @@ from bot_monte_carlo_heuristic import MonteCarloChad
 # from poke_env.player.player import Player
 
 async def main():
+    # Just so it doesn't spam the console with warnings
+    logging.getLogger("poke_env").setLevel(logging.ERROR)
+
+    # I moved this up here to test the expectimax player temporarily
+    # # Max vs Expecti
+    # start = time.time()
+    # max_player = damageDelilah(battle_format="gen9randombattle")
+    # expecti_player = ExpectimaxEric(battle_format="gen9randombattle")
+
+    # await max_player.battle_against(expecti_player, n_battles=1000)
+
+    # print(
+    #     "max player won %d / 1000 battles against expecti_player (this took %f seconds)"
+    #     % (
+    #         max_player.n_won_battles, time.time() - start
+    #     )
+    # )
+
+
     # Random vs Max
     start = time.time()
     random_player = randomRicky(battle_format="gen9randombattle")

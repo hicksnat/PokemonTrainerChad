@@ -3,10 +3,10 @@ from poke_env.environment.battle import Battle
 from poke_env.environment.move import Move
 from simulated_states import BattleState
 
-def expectimax_search(battle, depth=3, is_ai_turn=True):
+def expectimax_search(battle: Battle | BattleState, depth=3, is_ai_turn=True):
     # Perform Expectimax search on the current battle
     # Base case: if the battle is finished or depth limit reached
-    if battle.is_finished:
+    if battle._finished:
         if isinstance(battle, Battle):
             return 0
         return utility(battle)
@@ -20,37 +20,42 @@ def expectimax_search(battle, depth=3, is_ai_turn=True):
     # AI's turn: Maximizing player (AI)
     if is_ai_turn:
         best_value = float('-inf')
-        for successor in successor(battle):
-            value = expectimax_search(successor, depth, is_ai_turn=False)
+        for state in successor(battle, True):
+            value = expectimax_search(state, depth, is_ai_turn=True)
             best_value = max(best_value, value)
         return best_value
 
     # Chance node: Opponent's turn (average utility)
     else:
         total_value = 0
-        successors = successor(battle)
-        for successor in successors:
-            value = expectimax_search(successor, depth, is_ai_turn=True)
+        successors = successor(battle, False)
+        for state in successors:
+            value = expectimax_search(state, depth, is_ai_turn=True)
             total_value += value
         return total_value / len(successors) if successors else 0
 
     return best_value
 
-def successor(battle: Battle | BattleState):
+def successor(battle: Battle | BattleState, is_ai_turn: bool):
     # Returns all possible successor states from the current battle state
     successors = []
+
+    if isinstance(battle, Battle):
+        active_pokemon = battle.active_pokemon
+    else:
+        active_pokemon = battle.p1 if is_ai_turn else battle.p2
 
     available_moves = [move for move in battle.available_moves]
     available_switches = battle.available_switches
 
     for move in available_moves:
         successors.append(
-            BattleState(battle).apply_move(battle.active_pokemon, move)
+            BattleState(battle).apply_move(active_pokemon, move)
         )
 
     for switch in available_switches:
         successors.append(
-            BattleState(battle).switch_pokemon(battle.active_pokemon, switch)
+            BattleState(battle).switch_pokemon(active_pokemon, switch)
         )
 
     return successors
