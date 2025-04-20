@@ -1,26 +1,31 @@
-from poke_env.player import Player
-from poke_env.environment.battle import Battle
+from shutil import move
+from poke_env.player.player import Player
+from poke_env.player.random_player import RandomPlayer
+from poke_env.player.player import Player
+from poke_env.player.baselines import SimpleHeuristicsPlayer
+from poke_env.environment.move_category import MoveCategory
+from poke_env.environment.pokemon import Pokemon
 from poke_env.environment.move import Move
-from simulated_states import BattleState
+import random
+from expectimax_utils import expectimax_search, successor, utility
 
-def successor(battle: Battle):
-    # Returns all possible successor states from the current battle state
-    successors = []
-
-    available_moves = [move for move in battle.available_moves if not move.disabled]
-    available_switches = battle.available_switches
-
-    for move in available_moves:
-        successors.append(
-            BattleState(battle).apply_move(battle.active_pokemon, move)
-        )
-
-    for switch in available_switches:
-        successors.append(
-            BattleState(battle).switch_pokemon(battle.active_pokemon, switch)
-        )
-
-    return successors
+class ExpectimaxEric(Player):
+    def choose_move(self, battle):
+        max_util = float('-inf')
+        best_move = None
+        for state in successor(battle):
+            value = expectimax_search(state, depth=3, is_ai_turn=True)
+            if value > max_util:
+                max_util = value
+                best_move = state.history[-1]
 
 
+        # If no best move is found, choose a random available move
+        # This is a fallback mechanism to ensure the bot always makes a move
+        if best_move is None:
+            return self.create_order(random.choice(battle.available_moves)) 
 
+        return self.create_order(best_move['action'])
+
+            
+        

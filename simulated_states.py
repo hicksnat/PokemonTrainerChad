@@ -21,13 +21,23 @@ class SimulatedPokemon:
 
 
 class BattleState:
-    def __init__(self, battle: Battle):
-        self.p1 = SimulatedPokemon(battle.active_pokemon)
-        self.p2 = SimulatedPokemon(battle.opponent_active_pokemon)
-        self.turn = battle.turn or 0
+    def __init__(self, battle):
+        if (isinstance(battle, Battle)):
+            self.original = battle
+            self.p1 = SimulatedPokemon(battle.active_pokemon)
+            self.p2 = SimulatedPokemon(battle.opponent_active_pokemon)
+            self.utility = 0
+            self.layer = 0
+        elif (isinstance(battle, BattleState)):
+            self.original = battle.original
+            self.p1 = battle.p1.clone()
+            self.p2 = battle.p2.clone()
+            self.utility = battle.utility
+            self.layer = battle.layer + 1
 
-        self.weather = battle.weather  # Optional, for more complex sims
-        self.hazards = {'p1': [], 'p2': []}
+        self.available_moves = battle.available_moves
+        self.available_switches = battle.available_switches
+        
         self.status_log = []
         self.history = []
 
@@ -47,6 +57,25 @@ class BattleState:
         attacker = self.p1 if actor == 'p1' else self.p2
         defender = self.p2 if actor == 'p1' else self.p1
 
+        multiplier = 1.0
+
+        # Calculate status effects
+        if move.self_boost:
+            for stat, boost in move.self_boost.items():
+                if stat in attacker.stats:
+                    # Calculate the multiplier based on the boost stage
+                    if boost > 0:
+                        multiplier = (2 + boost) / 2
+                    else:
+                        multiplier = 2 / (2 - boost)
+                    attacker.stats[stat] = int(attacker.stats[stat] * multiplier)
+
+        if move.status and defender.status is None:
+            defender.status = move.status
+            if move.status == 'brn' or move.status == 'par':
+                # Estimates the damage reduction from burn or paralysis (considering that they aren't always guaranteed)
+                defender.stats['atk'] = int(defender.stats['atk'] * 0.8)
+        
         # Simplified damage calculation
         level = 50
         atk_stat = attacker.stats['atk'] if move.category == 'Physical' else attacker.stats['spa']
@@ -63,11 +92,15 @@ class BattleState:
 
         self.history.append({
             'actor': actor,
-            'move': move.id,
+            'action': move,
             'damage': damage
         })
 
-        self.turn += 1
+        if (defender.is_fainted()):
+            utility += 1000 if actor == 'p1' else -1000
+
+        return self
+
 
     def switch_pokemon(self, actor: str, new_pokemon: Pokemon):
         # Switches the active Pokemon for the actor (p1 or p2)
@@ -78,13 +111,7 @@ class BattleState:
 
         self.history.append({
             'actor': actor,
-            'switch': new_pokemon.species
+            'action': new_pokemon
         })
 
-        self.turn += 1
-
-    def is_terminal(self):
-        return self.p1.is_fainted() or self.p2.is_fainted()
-
-    def evaluate(self):
-        return (self.p1.current_hp / self.p1.max_hp) - (self.p2.current_hp / self.p2.max_hp)
+        return self
