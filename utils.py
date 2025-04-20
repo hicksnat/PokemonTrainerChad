@@ -1,22 +1,60 @@
-def pokemon_to_showdown_string(pokemon):
-    """
-    Convert a Pokemon object into a valid Showdown team string.
-    """
-    # Start with the name and item (if any)
-    team_str = f"{pokemon.name} @ {pokemon.item if pokemon.item else 'None'}\n"
+from poke_env.teambuilder.teambuilder import TeambuilderPokemon
+import pokebase as pb
+import random
+
+
+def convert_to_teambuilder_pokemon(pokemon):
+# Handle EVs and IVs
     
-    # Add Ability and Level
-    team_str += f"Ability: {pokemon.ability}\n"
-    team_str += f"Level: {pokemon.level}\n"
+    # Handle moves
+    # Makes a list of the pokemon's moves
+    moves = complete_moveset(pokemon)
+
+    # Just set to heavy duty boots if no item
+    held_item = pokemon.item
+    if (held_item == "unknown_item"):
+        held_item = "Heavy-Duty Boots"
+
+    # Return as list
+    return [
+        TeambuilderPokemon(
+            species=pokemon.species.title(),
+            item=held_item,
+            ability=(pokemon.ability or "No Ability").title().replace("-", " "),
+            moves=moves[:4],  # Showdown only takes 4 moves
+            nature="Hardy",
+            evs=[0, 0, 0, 0, 0, 0],
+            ivs=[0, 0, 0, 0, 0, 0],
+            level=pokemon.level if hasattr(pokemon, "level") else 90,
+        )
+    ]
+
+
+
+def get_all_moves(species_name):
+    try:
+        # Get moves from PokéAPI
+        poke_data = pb.pokemon(species_name.lower().replace(" ", "-"))
+        return [move.move.name for move in poke_data.moves]
+    except Exception as e:
+        print(f"Could not fetch moves for {species_name}: {e}")
+        return []
     
-    # Add EVs (Effort Values)
-    evs_str = ' / '.join([f"{stat} {ev}" for stat, ev in pokemon.evs.items()])
-    team_str += f"EVs: {evs_str}\n"
-    
-    # Add Nature
-    team_str += f"{pokemon.nature} Nature\n"
-    
-    # Add Moves
-    team_str += "\n".join(pokemon.moves) + "\n"
-    
-    return team_str
+def complete_moveset(pokemon):
+    # Get current moves
+    moves = list(pokemon.moves.keys()) if isinstance(pokemon.moves, dict) else list(pokemon.moves or [])
+
+    if len(moves) < 4:
+        # Get all possible moves for the species
+        species_moves = get_all_moves(pokemon.species)
+
+        # Filter out moves already in the list to avoid duplicates
+        remaining_moves = list(set(species_moves) - set(moves))
+
+        # Randomly fill in until we hit 4 moves or run out
+        while len(moves) < 4 and remaining_moves:
+            new_move = random.choice(remaining_moves)
+            moves.append(new_move)
+            remaining_moves.remove(new_move)
+
+    return moves[:4]  # Just in case

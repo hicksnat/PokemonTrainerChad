@@ -1,11 +1,43 @@
 import random
 import copy
 import asyncio
-from utils import pokemon_to_showdown_string
+from utils import convert_to_teambuilder_pokemon
 from poke_env.environment.move import Move
 from poke_env.environment.pokemon import Pokemon
 from poke_env.player.random_player import RandomPlayer
 from random_agent_for_simulations import FirstMovePlayer
+from poke_env.teambuilder.teambuilder import Teambuilder, TeambuilderPokemon
+
+
+
+
+
+# Define your team using TeambuilderPokemon
+team = [
+    TeambuilderPokemon(
+        species="Goodra",
+        item="Assault Vest",
+        ability="Sap Sipper",
+        moves=["Dragon Pulse", "Flamethrower", "Sludge Wave", "Thunderbolt"],
+        nature="Modest",
+        evs=[248, 0, 0, 252, 0, 8],
+        ivs=[31, 0, 31, 31, 31, 31],
+        level=100,
+        gender="M"
+    ),
+    # Add more TeambuilderPokemon instances for the rest of your team
+]
+
+# Convert the team to the packed format
+packed_team = Teambuilder.join_team(team)
+
+# Now you can use packed_team with Pokémon Showdown
+
+
+
+
+
+
 
 
 class Node:
@@ -35,7 +67,7 @@ class Node:
     def get_children(self):
         return self.children
     
-    def expand(self):
+    async def expand(self):
         """
         Expands the current node by applying an untried action,
         simulating the result, and adding a new child node.
@@ -55,7 +87,7 @@ class Node:
             action_to_expand = random.choice(unexpanded_actions)
 
         # Create a new game and simulate based off of that action; returns 1 for win, -1 for loss
-            result, new_state = self.state.apply_action(action_to_expand)
+            result, new_state = await self.state.apply_action(action_to_expand)
 
         # Create a new child node
             new_child_node = Node(new_state, parent=self, action=action_to_expand)
@@ -77,12 +109,15 @@ class Node:
 class GameState:
     def __init__(self, battle):
         self.active_pokemon = battle.active_pokemon
-        self.opponent_pokemon = battle.opponent_pokemon
+        self.opponent_pokemon = battle.opponent_active_pokemon
         self.available_switches = battle.available_switches
         self.available_moves = battle.available_moves
-        self.hp_data = battle.hp_data
-        self.status_data = battle.status_data
-        self.pp_data = self.get_pp_data(battle)
+        # self.hp_data = battle.hp_data
+        # self.status_data = battle.status_data
+        self.pp_data = self.get_pp_data()
+
+    def get_pp_data(self):
+        return {move.id: move.current_pp for move in self.available_moves}
 
     
     def get_possible_actions(self):
@@ -105,61 +140,60 @@ class GameState:
 
 
 
-    ###### Currently working on. This is where the real trouble comes in
-    # We can't feasibly copy the exact game and play it as it would simulate out from this point
-    # I think what we'll try to do is here put two "dummy battlers" here as random opponents and
-    # have them fight to approximate battles to return win and loss chances
-    def apply_action(self, action):
+    async def apply_action(self, action):
         # Make a deep copy of the current state to avoid modifying the real one
         new_state = copy.deepcopy(self) #Ok so what I'm gonna do is copy the game state and manually change the parts that change so that it makes sense
 
         # Check if the action is a move
         if isinstance(action, Move):
-            # Instantiate teams
-            agent_team = pokemon_to_showdown_string(self.active_pokemon)
-            opponent_team = pokemon_to_showdown_string(self.opponent_pokemon)
+            # Instantiate teams as Showdown's Team object
+            agent_team = convert_to_teambuilder_pokemon(self.active_pokemon)
+            opponent_team = convert_to_teambuilder_pokemon(self.opponent_pokemon)
+
 
             # Make sure the new state now has the information for this new trial node
             new_state.active_pokemon = self.active_pokemon
 
+            # Debugging: Check that the team format is correct
+            print(f"Agent Team: {agent_team}")
+            print(f"Opponent Team: {opponent_team}")
+
             # Instantiate the agent and opponent                 
             agent = FirstMovePlayer(
-                battle_format="gen9ubers",
-                team=[agent_team])
+                first_move=action,
+                battle_format="gen9customgame",
+                team=agent_team)
             opponent = RandomPlayer(
-                battle_format="gen9ubers",
-                team=[opponent_team])
+                battle_format="gen9customgame",
+                team=opponent_team)
 
-            # Run one match
-            async def main():
-                return await agent.battle_against(opponent, n_battles=1)
-
-            battle = asyncio.run(main())
-
+            # Run one match using await directly
+            battle = await agent.battle_against(opponent, n_battles=1)
             return (1 if battle.won_by(agent.name) else -1), new_state
 
 
         # Or check if it's a switch
         elif isinstance(action, Pokemon):
-            agent_team = pokemon_to_showdown_string(action)
-            opponent_team = pokemon_to_showdown_string(self.opponent_pokemon)
+            # Instantiate teams as Showdown's Team object
+            agent_team = convert_to_teambuilder_pokemon(action)
+            opponent_team = convert_to_teambuilder_pokemon(self.opponent_pokemon)
 
             # Make sure the new state now has the information for this new trial node
             new_state.active_pokemon = action
 
+            # Debugging: Check that the team format is correct
+            print(f"Agent Team: {agent_team}")
+            print(f"Opponent Team: {opponent_team}")
+
             agent = RandomPlayer(
-                battle_format="gen9ubers",
-                team=[agent_team])
+                battle_format="gen9customgame",
+                team=agent_team)
             opponent = RandomPlayer(
-                battle_format="gen9ubers",
-                team=[opponent_team])
+                battle_format="gen9customgame",
+                team=opponent_team)
             
-            # Run one match
-            async def main():
-                return await agent.battle_against(opponent, n_battles=1)
-
-            battle = asyncio.run(main())
-
+            # Run one match using await directly
+            battle = await agent.battle_against(opponent, n_battles=1)
             return (1 if battle.won_by(agent.name) else -1), new_state
 
 

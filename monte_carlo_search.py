@@ -5,7 +5,6 @@ import asyncio
 from poke_env.environment.pokemon import Pokemon
 from poke_env.player.random_player import RandomPlayer
 from random_agent_for_simulations import FirstMovePlayer
-from utils import pokemon_to_showdown_string
 from poke_env.environment.move import Move
 
 
@@ -15,7 +14,7 @@ from poke_env.environment.move import Move
 # https://www.geeksforgeeks.org/ml-monte-carlo-tree-search-mcts/ 
 
 # This is the BASIC FLOW for a Monte Carlo Tree operation
-def mcts(root, num_simulations):
+async def mcts(root, num_simulations):
     for _ in range(num_simulations):
         node = root
         # 1. SELECTION
@@ -25,7 +24,7 @@ def mcts(root, num_simulations):
         # 2. EXPANSION (In the previous step, we traversed the tree until we reached a node that was not fully expanded)
         # 3. SIMULATION (Also does the expansion step)
         if not node.fully_expanded(): # This should always be true (see step 1)
-            expanded_node = node.expand()  # Add a new child node
+            expanded_node = await node.expand()  # Add a new child node
             result = expanded_node.simulation_result
 
         # 4. BACKPROPAGATION
