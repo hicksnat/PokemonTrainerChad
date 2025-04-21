@@ -12,6 +12,10 @@ from poke_env.teambuilder.teambuilder import Teambuilder, TeambuilderPokemon
 
 
 
+
+
+
+
 # Define your team using TeambuilderPokemon
 team = [
     TeambuilderPokemon(
@@ -147,14 +151,15 @@ class GameState:
         # Check if the action is a move
         if isinstance(action, Move):
             # Instantiate teams as Showdown's Team object
-            agent_team = convert_to_teambuilder_pokemon(self.active_pokemon)
-            opponent_team = convert_to_teambuilder_pokemon(self.opponent_pokemon)
+            agent_team = Teambuilder.join_team(convert_to_teambuilder_pokemon(self.active_pokemon))
+            opponent_team = Teambuilder.join_team(convert_to_teambuilder_pokemon(self.opponent_pokemon))
+                             
 
 
             # Make sure the new state now has the information for this new trial node
             new_state.active_pokemon = self.active_pokemon
 
-            # Debugging: Check that the team format is correct
+            # Just for debugging: Check that the team format is correct
             print(f"Agent Team: {agent_team}")
             print(f"Opponent Team: {opponent_team}")
 
@@ -175,8 +180,10 @@ class GameState:
         # Or check if it's a switch
         elif isinstance(action, Pokemon):
             # Instantiate teams as Showdown's Team object
-            agent_team = convert_to_teambuilder_pokemon(action)
-            opponent_team = convert_to_teambuilder_pokemon(self.opponent_pokemon)
+            agent_team = Teambuilder.join_team(convert_to_teambuilder_pokemon(action))
+            opponent_team = Teambuilder.join_team(convert_to_teambuilder_pokemon(self.opponent_pokemon))
+
+
 
             # Make sure the new state now has the information for this new trial node
             new_state.active_pokemon = action
