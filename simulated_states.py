@@ -32,7 +32,18 @@ class SimulatedPokemon:
         self.boosts = p.boosts
 
     def clone(self):
-        return copy.deepcopy(self)
+        # Only clone mutable attributes
+        cloned = SimulatedPokemon.__new__(SimulatedPokemon)
+        cloned.name = self.name
+        cloned.type_1 = self.type_1  # Immutable, no need to copy
+        cloned.type_2 = self.type_2  # Immutable, no need to copy
+        cloned.stats = self.stats  # Immutable, no need to copy
+        cloned.max_hp = self.max_hp  # Immutable, no need to copy
+        cloned.current_hp = self.current_hp
+        cloned.status = self.status
+        cloned.item = self.item
+        cloned.boosts = self.boosts.copy()  # Mutable, needs copying
+        return cloned
 
     def is_fainted(self) -> bool:
         return self.current_hp <= 0
@@ -58,7 +69,7 @@ class BattleState:
             self.original = battle.original
             self.p1 = battle.p1
             self.p2 = battle.p2
-            self.history = battle.history
+            self.history = battle.history.copy()
             self.layer = battle.layer + 1
 
         self.available_moves = battle.available_moves
@@ -67,19 +78,9 @@ class BattleState:
         self.status_log = []
         self._finished = battle._finished
 
-    def clone(self):
-        new_state = BattleState.__new__(BattleState)
-        new_state.p1 = self.p1.clone()
-        new_state.p2 = self.p2.clone()
-        new_state.turn = self.turn
-        new_state.weather = self.weather
-        new_state.hazards = copy.deepcopy(self.hazards)
-        new_state.status_log = copy.deepcopy(self.status_log)
-        new_state.history = copy.deepcopy(self.history)
-        return new_state
-
     def apply_move(self, actor: str, move: Move):
         # Applies the move based on the actor (p1 or p2)
+
         attacker = self.p1 if actor == 'p1' else self.p2
         defender = self.p2 if actor == 'p1' else self.p1
 
@@ -134,7 +135,7 @@ class BattleState:
         if move.base_power == 0:
             damage = 0
         
-        defender.current_hp = max(0, defender.current_hp - damage)
+        defender.current_hp = defender.current_hp - damage
 
         # print(f"{defender.name} would take {damage} damage from {attacker.name}'s {move} and would now have {defender.current_hp} HP left.")
 
@@ -171,6 +172,29 @@ class BattleState:
         else:
             return base
         
-    
-    
+    def __str__(self):
+    # Format the history for readability
+        history_str = "\n".join(
+            [f"Turn {i + 1}: Actor: {event['actor']}, Action: {event['action']}, Damage: {event['damage']}" 
+                for i, event in enumerate(self.history)]
+        )
+
+        # Format the Pokémon details
+        p1_details = f"{self.p1.name} (HP: {self.p1.current_hp}/{self.p1.max_hp}, Status: {self.p1.status}, Boosts: {self.p1.boosts})"
+        p2_details = f"{self.p2.name} (HP: {self.p2.current_hp}/{self.p2.max_hp}, Status: {self.p2.status}, Boosts: {self.p2.boosts})"
+
+        # Combine everything into a readable string
+        return (
+            f"BattleState:\n"
+            f"  Layer: {self.layer}\n"
+            f"  Player 1: {p1_details}\n"
+            f"  Player 2: {p2_details}\n"
+            f"  Available Moves: {[move for move in self.available_moves]}\n"
+            f"  Available Switches: {[pokemon.name for pokemon in self.available_switches]}\n"
+            f"  History:\n{history_str}\n"
+            f"  Finished: {self._finished}\n"
+        )
+            
+        
+        
 

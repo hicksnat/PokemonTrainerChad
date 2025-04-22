@@ -2,9 +2,10 @@ from poke_env.player import Player
 from poke_env.environment.battle import Battle
 from poke_env.environment.move import Move
 from simulated_states import BattleState
+from poke_env.environment.pokemon import Pokemon
 from type_chart import type_chart
 
-def expectimax_search(battle: Battle | BattleState, depth=4, is_ai_turn=True, force_switch=False):
+def expectimax_search(battle: Battle | BattleState, depth=4, is_ai_turn=True, verbose=False):
     # Perform Expectimax search on the current battle
     # Base case: if the battle is finished or depth limit reached
 
@@ -13,26 +14,17 @@ def expectimax_search(battle: Battle | BattleState, depth=4, is_ai_turn=True, fo
             return utility(battle)
         
         if battle.p1.is_fainted():
-            # print("AI Fainted")
+            if verbose:
+                print("AI fainted in this state.")
+                print(battle)
+                print("Utility of this state: ", utility(battle))
             return utility(battle)
         if battle.p2.is_fainted():
-            # print("Opponent Fainted")
+            if verbose:
+                print("Opponent fainted in this state.")
+                print(battle)
+                print("Utility of this state: ", utility(battle))
             return utility(battle)
-
-    # Forced switch: do not evaluate moves, just pick best switch-in (i.e. AI's pokemon faints)
-    if force_switch:
-        best_switch = None
-        max_value = float('-inf')
-
-        for switch in battle.available_switches:
-            fake_state = BattleState(battle).switch_pokemon('p1', switch)
-            value = expectimax_search(fake_state, depth=depth, is_ai_turn=False)  # Opponent will act next
-            # print(f"Switch option: {switch.species}, Expected value: {value}")
-            if value > max_value:
-                max_value = value
-                best_switch = switch
-
-        return best_switch
 
     best_value = float('-inf')
 
@@ -46,7 +38,7 @@ def expectimax_search(battle: Battle | BattleState, depth=4, is_ai_turn=True, fo
 
     # Chance node: Opponent's turn (weighted by base power × STAB × effectiveness)
     else:
-        successors = successor(battle, False)
+        successors = successor(battle, True)
 
         move_weights = []
         for state in successors:
@@ -88,22 +80,18 @@ def expectimax_search(battle: Battle | BattleState, depth=4, is_ai_turn=True, fo
 
         return total_value
 
-
-    return best_value
-
 def successor(battle: Battle | BattleState, is_ai_turn: bool):
     # Returns all possible successor states from the current battle state
     successors = []
-
-    if isinstance(battle, Battle):
-        active_pokemon = battle.active_pokemon
-    else:
-        active_pokemon = battle.p1 if is_ai_turn else battle.p2
 
     available_moves = [move for move in battle.available_moves]
     available_switches = battle.available_switches
 
     for move in available_moves:
+        # Ignore self-destructing moves like Explosion and Self-Destruct
+        if move.id == "explosion" or move.id == "selfdestruct":
+            continue
+        # Ignore moves that the opponent is immune to
         if is_ai_turn:
             if(isinstance(battle, BattleState)):
                 effectiveness = move.type.damage_multiplier(
@@ -116,8 +104,8 @@ def successor(battle: Battle | BattleState, is_ai_turn: bool):
                     continue  # skip completely ineffective moves
             else:
                 effectiveness = move.type.damage_multiplier(
-                battle.opponent_active_pokemon.type_1 if is_ai_turn else active_pokemon.type_1,
-                battle.opponent_active_pokemon.type_2 if is_ai_turn else active_pokemon.type_2,
+                battle.opponent_active_pokemon.type_1 if is_ai_turn else battle.active_pokemon.type_1,
+                battle.opponent_active_pokemon.type_2 if is_ai_turn else battle.active_pokemon.type_2,
                 type_chart=type_chart
                 )
                 # print(f"Move: {move}, Effectiveness against {battle.opponent_active_pokemon.species}: {effectiveness}")
@@ -130,81 +118,75 @@ def successor(battle: Battle | BattleState, is_ai_turn: bool):
 
     for switch in available_switches:
         successors.append(
-            BattleState(battle).switch_pokemon(active_pokemon, switch)
+            BattleState(battle).switch_pokemon('p1' if is_ai_turn else 'p2', switch)
         )
 
     return successors
 
 def utility(battleState: BattleState):
-    last_ai_move = battleState.history[-1]["action"] if battleState.history else None
     utility = 0
-    p1_hp_ratio = 0
-    p2_hp_ratio = 0
 
-    p1_hp_ratio = battleState.p1.current_hp / battleState.p1.max_hp
-    p2_hp_ratio = battleState.p2.current_hp / battleState.p2.max_hp 
+    # 1. Total damage dealt and taken
+    total_ai_damage = sum(event["damage"] for event in battleState.history
+                          if event["actor"] == "p1" and isinstance(event["action"], Move))
+    total_opp_damage = sum(event["damage"] for event in battleState.history
+                           if event["actor"] == "p2" and isinstance(event["action"], Move))
 
+    utility += total_ai_damage * 1.5     # Moderate reward for damage dealt
+    utility -= total_opp_damage * 1.0     # Slight penalty for taking damage
 
-    utility += (p1_hp_ratio - p2_hp_ratio) * 200
-
+    # 2. Fainting bonuses
     if battleState.p2.is_fainted():
-        utility += 400 - (battleState.layer * 50)
+        utility += 1000 - (battleState.layer * 75)
     if battleState.p1.is_fainted():
-        utility -= 350 - (battleState.layer * 50)
+        utility -= 1000 - (battleState.layer * 75)
 
-    # If AI sent in a Pokémon with bad type matchup or low HP
+    # 3. HP threshold penalty
     if battleState.p1.current_hp / battleState.p1.max_hp < 0.3:
         utility -= 50
 
-    # Bonus if your current mon resists the opponent's type
+    # 4. Type matchup against enemy's known move types
     if hasattr(battleState.original, "opponent_active_pokemon"):
         opp_move_types = [move.type for move in battleState.original.opponent_active_pokemon.moves.values() if move]
         for move_type in opp_move_types:
             effectiveness = move_type.damage_multiplier(battleState.p1.type_1, battleState.p1.type_2, type_chart=type_chart)
             if effectiveness > 1.5:
-                utility -= 120  # you're weak to this
+                utility -= 75   # You're weak to their moves
             elif effectiveness < 0.5:
-                utility += 50  # you're resistant
-    
-    stat_weights = {
-    'atk': 90,
-    'spa': 90,
-    'def': 50,
-    'spd': 20
-    }
+                utility += 50   # You resist their moves
 
+    # 5. Stat boosts (buffs)
+    stat_weights = {
+        'atk': 30,
+        'spa': 30,
+        'def': 20,
+        'spd': 10
+    }
     for stat, weight in stat_weights.items():
         stage = battleState.p1.boosts.get(stat, 0)
-        utility += stage * weight
-    
+        if not battleState.p1.is_fainted():
+            utility += stage * weight
 
-    # Penalize being slower than the opponent
-    ai_speed = battleState.p1.stats["spe"]
-    opponent_speed = battleState.p2.stats["spe"]
-
-    ai_speed_stage = battleState.p1.boosts.get("spe", 0)
-    opponent_speed_stage = battleState.p2.boosts.get("spe", 0)
-
-    # Apply stat stage modifiers
-    def apply_stage(base, stage):
-        if stage > 0:
-            return base * ((2 + stage) / 2)
-        elif stage < 0:
-            return base * (2 / (2 - stage))
-        return base
-
-    ai_speed = apply_stage(ai_speed, ai_speed_stage)
-    opponent_speed = apply_stage(opponent_speed, opponent_speed_stage)
-
-    if ai_speed < opponent_speed:
-        utility -= 25  # Small penalty for being outsped
-
-    if last_ai_move and isinstance(last_ai_move, Move):
-        effectiveness = last_ai_move.type.damage_multiplier(battleState.p2.type_1, battleState.p2.type_2, type_chart=type_chart)
-        utility += 80 * (effectiveness - 1.0)  # +80 for 2x, −80 for 0.0
+    # 6. Speed advantage
+    ai_speed = apply_stage(battleState.p1.stats["spe"], battleState.p1.boosts.get("spe", 0))
+    opponent_speed = apply_stage(battleState.p2.stats["spe"], battleState.p2.boosts.get("spe", 0))
+    if ai_speed > opponent_speed:
+        utility += 30   # Being faster is good
     else:
-        # penalize non-moves (switches)
-        utility -= 60
+        utility -= 30   # Being slower is bad
 
+    # 7. Penalize switching (to discourage flip-flopping)
+    switches = sum(1 for event in battleState.history
+                   if event["actor"] == "p1" and isinstance(event["action"], Pokemon))
+    utility -= switches * 75
 
     return utility
+
+
+def apply_stage(base, stage):
+    # helper for speed calc
+    if stage > 0:
+        return base * ((2 + stage) / 2)
+    elif stage < 0:
+        return base * (2 / (2 - stage))
+    return base

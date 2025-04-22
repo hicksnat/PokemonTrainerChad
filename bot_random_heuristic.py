@@ -1,5 +1,6 @@
 # PokeENV comes with a built in random bot, the RandomPlayer class. However, this bot
 # includes switching in its random choices. We want our random bot to choose a random move
+import logging
 from poke_env.player.player import Player
 from poke_env.player.random_player import RandomPlayer
 from poke_env.player.player import Player
