@@ -151,17 +151,17 @@ class GameState:
         # Check if the action is a move
         if isinstance(action, Move):
             # Instantiate teams as Showdown's Team object
-            agent_team = Teambuilder.join_team(convert_to_teambuilder_pokemon(self.active_pokemon))
-            opponent_team = Teambuilder.join_team(convert_to_teambuilder_pokemon(self.opponent_pokemon))
-                             
+            agent_team = Teambuilder.join_team(convert_to_teambuilder_pokemon(self.active_pokemon)).rstrip("]")
+            opponent_team = Teambuilder.join_team(convert_to_teambuilder_pokemon(self.opponent_pokemon)).rstrip("]")
+
+
+            print("DEBUG Final Agent Team:", repr(agent_team))
+            print("DEBUG Final Opponent Team:", repr(opponent_team))
 
 
             # Make sure the new state now has the information for this new trial node
             new_state.active_pokemon = self.active_pokemon
 
-            # Just for debugging: Check that the team format is correct
-            print(f"Agent Team: {agent_team}")
-            print(f"Opponent Team: {opponent_team}")
 
             # Instantiate the agent and opponent                 
             agent = FirstMovePlayer(
@@ -173,8 +173,11 @@ class GameState:
                 team=opponent_team)
 
             # Run one match using await directly
-            battle = await agent.battle_against(opponent, n_battles=1)
-            return (1 if battle.won_by(agent.name) else -1), new_state
+            await agent.battle_against(opponent, n_battles=1)
+
+            # Get the actual battle (only one in this case, so we grab the first)
+            battle = list(agent.battles.values())[0]
+            return (1 if battle.won_by(agent.username) else -1), new_state
 
 
         # Or check if it's a switch
@@ -184,13 +187,13 @@ class GameState:
             opponent_team = Teambuilder.join_team(convert_to_teambuilder_pokemon(self.opponent_pokemon))
 
 
+            print("DEBUG Final Agent Team:", repr(agent_team))
+            print("DEBUG Final Opponent Team:", repr(opponent_team))
+
 
             # Make sure the new state now has the information for this new trial node
             new_state.active_pokemon = action
 
-            # Debugging: Check that the team format is correct
-            print(f"Agent Team: {agent_team}")
-            print(f"Opponent Team: {opponent_team}")
 
             agent = RandomPlayer(
                 battle_format="gen9customgame",
@@ -200,8 +203,11 @@ class GameState:
                 team=opponent_team)
             
             # Run one match using await directly
-            battle = await agent.battle_against(opponent, n_battles=1)
-            return (1 if battle.won_by(agent.name) else -1), new_state
+            await agent.battle_against(opponent, n_battles=1)
+
+            # Get the actual battle (only one in this case, so we grab the first)
+            battle = list(agent.battles.values())[0]
+            return (1 if battle.won_by(agent.username) else -1), new_state
 
 
         else:

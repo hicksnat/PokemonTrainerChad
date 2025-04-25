@@ -16,7 +16,7 @@ class FirstMovePlayer(RandomPlayer):
 
             # If somehow the move isn't available (e.g., disabled), fallback to random
             self.first_move_used = True
-            return await super().choose_move(battle)
+            return super().choose_move(battle)
 
         # After the first move, just use random strategy
-        return await super().choose_move(battle)
+        return super().choose_move(battle)

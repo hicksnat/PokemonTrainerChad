@@ -15,10 +15,15 @@ def convert_to_teambuilder_pokemon(pokemon):
     if (held_item == "unknown_item"):
         held_item = "Heavy-Duty Boots"
 
+    print(f"[DEBUG] pokemon.species: {repr(pokemon.species)}")
+
+    nickname = pokemon.species.title()
+
     # Return as list
     return [
         TeambuilderPokemon(
             species=pokemon.species.title(),
+            nickname=nickname,
             item=held_item,
             ability=(pokemon.ability or "No Ability").title().replace("-", " "),
             moves=moves[:4],  # Showdown only takes 4 moves

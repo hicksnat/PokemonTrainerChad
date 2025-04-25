@@ -22,6 +22,8 @@ class MonteCarloChad(Player):
 
             chosen_move = await monte_carlo_search.mcts(starting_node, 5)
 
+            print(chosen_move)
+
             return self.create_order(chosen_move)
         else:
             return self.choose_random_move(battle)
